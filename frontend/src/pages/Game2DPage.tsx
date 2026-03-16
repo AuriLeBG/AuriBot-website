@@ -17,7 +17,10 @@ class FarmScene extends Phaser.Scene {
   }
 
   private player!: PlayerActor
-  private others: PlayerActor[] = []
+  private othersById: Map<string, PlayerActor> = new Map()
+  private ws?: WebSocket
+  private myId?: string
+  private lastSentAt = 0
   private speed = 180
 
   create() {
@@ -101,11 +104,7 @@ class FarmScene extends Phaser.Scene {
 
     this.player = makeActor(200, 200, username)
 
-    // Mock other players (until we add real networking)
-    this.others = [
-      makeActor(340, 240, 'Tramin'),
-      makeActor(280, 360, 'Valentin'),
-    ]
+    this.connectWs(username)
 
     // Camera
     this.cameras.main.setBounds(0, 0, 4000, 4000)
@@ -127,7 +126,17 @@ class FarmScene extends Phaser.Scene {
 
       // Keep name tags above sprites
       this.player.nameText.setPosition(this.player.sprite.x, this.player.sprite.y - 26)
-      for (const p of this.others) p.nameText.setPosition(p.sprite.x, p.sprite.y - 26)
+      for (const p of this.othersById.values()) {
+        p.nameText.setPosition(p.sprite.x, p.sprite.y - 26)
+      }
+    })
+
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      try {
+        this.ws?.close()
+      } catch {
+        // ignore
+      }
     })
 
     // UI hint
@@ -143,7 +152,7 @@ class FarmScene extends Phaser.Scene {
       .setScrollFactor(0)
   }
 
-  update(_: number, delta: number) {
+  update(time: number, delta: number) {
     const dt = delta / 1000
 
     const left = this.cursors.left.isDown || this.wasd.A.isDown
@@ -165,8 +174,20 @@ class FarmScene extends Phaser.Scene {
       vy *= inv
     }
 
+    const oldX = this.player.sprite.x
+    const oldY = this.player.sprite.y
+
     this.player.sprite.x += vx * this.speed * dt
     this.player.sprite.y += vy * this.speed * dt
+
+    const moved = oldX !== this.player.sprite.x || oldY !== this.player.sprite.y
+    if (moved) {
+      // Throttle to ~12 updates/sec
+      if (time - this.lastSentAt > 80) {
+        this.lastSentAt = time
+        this.sendPos()
+      }
+    }
   }
 
   private constrainToWorld(obj: Phaser.GameObjects.Image) {
@@ -203,6 +224,139 @@ class FarmScene extends Phaser.Scene {
       if (overlapY1 < overlapY2) a.y += overlapY1
       else a.y -= overlapY2
     }
+  }
+
+  private connectWs(username: string) {
+    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
+    const url = `${proto}://${window.location.host}/ws`
+
+    const ws = new WebSocket(url)
+    this.ws = ws
+
+    ws.onopen = () => {
+      // Join with current position
+      ws.send(
+        JSON.stringify({
+          type: 'join',
+          name: username,
+          x: this.player.sprite.x,
+          y: this.player.sprite.y,
+        }),
+      )
+    }
+
+    ws.onmessage = (ev) => {
+      let msg: unknown
+      try {
+        msg = JSON.parse(ev.data)
+      } catch {
+        return
+      }
+
+      const m = msg as { type?: string; [k: string]: unknown }
+
+      switch (m.type) {
+        case 'hello':
+          // ignore (sessionId)
+          break
+        case 'snapshot': {
+          const players = (m.players as unknown[] | undefined) ?? []
+          if (Array.isArray(players)) {
+            for (const p of players) this.upsertOther(p)
+          }
+          break
+        }
+        case 'join':
+          this.upsertOther(m)
+          break
+        case 'leave':
+          if (typeof m.id === 'string') this.removeOther(m.id)
+          break
+        case 'pos':
+          this.updatePos(m)
+          break
+        default:
+          break
+      }
+    }
+
+    ws.onclose = () => {
+      // Could implement reconnect here.
+    }
+  }
+
+  private upsertOther(p: unknown) {
+    const o = p as { id?: unknown; name?: unknown; x?: unknown; y?: unknown }
+    if (!o || typeof o.id !== 'string') return
+
+    // Detect our own id by name+position on first snapshot (simple heuristic)
+    if (!this.myId && typeof o.name === 'string' && o.name === this.player.nameText.text) {
+      const px = typeof o.x === 'number' ? o.x : 0
+      const py = typeof o.y === 'number' ? o.y : 0
+      const dx = Math.abs(px - this.player.sprite.x)
+      const dy = Math.abs(py - this.player.sprite.y)
+      if (dx < 1 && dy < 1) this.myId = o.id
+    }
+
+    if (this.myId && o.id === this.myId) return
+
+    const existing = this.othersById.get(o.id)
+    if (existing) {
+      if (typeof o.name === 'string') existing.nameText.setText(o.name)
+      if (typeof o.x === 'number') existing.sprite.x = o.x
+      if (typeof o.y === 'number') existing.sprite.y = o.y
+      return
+    }
+
+    const name = typeof o.name === 'string' ? o.name : 'Player'
+    const x = typeof o.x === 'number' ? o.x : 200
+    const y = typeof o.y === 'number' ? o.y : 200
+
+    const sprite = this.add.image(x, y, 'player8').setOrigin(0.5)
+    sprite.setTint(0x3498db) // others in blue
+
+    const nameText = this.add
+      .text(x, y - 26, name, {
+        fontFamily: 'monospace',
+        fontSize: '13px',
+        color: '#ffffff',
+        backgroundColor: 'rgba(0,0,0,0.35)',
+        padding: { left: 6, right: 6, top: 3, bottom: 3 },
+      })
+      .setOrigin(0.5, 1)
+
+    this.othersById.set(o.id, { sprite, nameText })
+  }
+
+  private updatePos(msg: unknown) {
+    const o = msg as { id?: unknown; x?: unknown; y?: unknown }
+    if (!o || typeof o.id !== 'string') return
+    if (this.myId && o.id === this.myId) return
+
+    const actor = this.othersById.get(o.id)
+    if (!actor) return
+
+    if (typeof o.x === 'number') actor.sprite.x = o.x
+    if (typeof o.y === 'number') actor.sprite.y = o.y
+  }
+
+  private removeOther(id: string) {
+    const actor = this.othersById.get(id)
+    if (!actor) return
+    actor.sprite.destroy()
+    actor.nameText.destroy()
+    this.othersById.delete(id)
+  }
+
+  private sendPos() {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return
+    this.ws.send(
+      JSON.stringify({
+        type: 'move',
+        x: this.player.sprite.x,
+        y: this.player.sprite.y,
+      }),
+    )
   }
 }
 
