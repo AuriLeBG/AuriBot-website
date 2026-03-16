@@ -1,0 +1,165 @@
+/* Ported from AuriBot-website/style.css (Hello Kitty style), with small adjustments */
+:root {
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: 'Comic Sans MS', cursive;
+  margin: 0;
+  background: #ffc0cb;
+  color: #ff1493;
+  padding: 20px;
+  text-align: center;
+}
+
+h1 {
+  color: #ff1493;
+  text-shadow: 2px 2px 4px #fff;
+  margin: 0 auto;
+}
+
+h2 {
+  margin-top: 40px;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-bottom: 2px solid #ff69b4;
+  padding-bottom: 20px;
+  margin-bottom: 40px;
+}
+
+a {
+  color: #ff69b4;
+  text-decoration: none;
+  border: 2px solid #ff69b4;
+  padding: 10px 20px;
+  margin: 10px;
+  display: inline-block;
+  border-radius: 20px;
+  background: #fff;
+  transition: all 0.3s;
+}
+
+a:hover {
+  background: #ff69b4;
+  color: #fff;
+  box-shadow: 0 0 15px #ff69b4;
+  transform: scale(1.05);
+}
+
+.comments-box {
+  margin: 20px auto;
+  width: 80%;
+  max-width: 500px;
+  height: 300px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #ff69b4 #ffc0cb;
+  border: 2px solid #ff69b4;
+  padding: 15px;
+  text-align: left;
+  background: #fff;
+  border-radius: 20px;
+  color: #333;
+}
+
+.comments-box::-webkit-scrollbar {
+  width: 8px;
+}
+
+.comments-box::-webkit-scrollbar-track {
+  background: #ffc0cb;
+  border-radius: 10px;
+}
+
+.comments-box::-webkit-scrollbar-thumb {
+  background: #ff69b4;
+  border-radius: 10px;
+}
+
+.comments-box p {
+  border-bottom: 1px solid #ffc0cb;
+  padding: 5px 0;
+}
+
+/* Slide Menu */
+.menu-btn {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  background: #fff;
+  border: 2px solid #ff69b4;
+  padding: 10px 20px;
+  border-radius: 20px;
+  cursor: pointer;
+  color: #ff69b4;
+  font-family: inherit;
+}
+
+.slide-menu {
+  position: fixed;
+  top: 0;
+  right: -320px;
+  width: 300px;
+  height: 100%;
+  background: #fff;
+  box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+  transition: 0.3s;
+  z-index: 999;
+  padding: 60px 20px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #ff69b4 #ffc0cb;
+}
+
+.slide-menu::-webkit-scrollbar {
+  width: 8px;
+}
+
+.slide-menu::-webkit-scrollbar-track {
+  background: #ffc0cb;
+  border-radius: 10px;
+}
+
+.slide-menu::-webkit-scrollbar-thumb {
+  background: #ff69b4;
+  border-radius: 10px;
+}
+
+.slide-menu.active {
+  right: 0;
+}
+
+.menu-category {
+  font-size: 0.9em;
+  color: #ff69b4;
+  text-align: center;
+  margin: 20px 0 10px 0;
+  border-bottom: 1px solid #ffc0cb;
+  padding-bottom: 5px;
+  font-weight: bold;
+}
+
+.cute-logout {
+  background: #fff;
+  border: 2px solid #ff69b4;
+  padding: 10px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  color: #ff1493;
+  font-family: inherit;
+}
+
+code {
+  background: rgba(255, 255, 255, 0.6);
+  padding: 2px 6px;
+  border-radius: 8px;
+}
