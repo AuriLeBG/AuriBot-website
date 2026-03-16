@@ -21,13 +21,6 @@ export function IndexPage() {
   const sections: MenuSection[] = useMemo(
     () => [
       {
-        title: 'Divertissement 🎮',
-        items: [
-          { label: 'Snake Amoureux 🐍', to: '/game' },
-          { label: 'Parking Câlin 🚗', to: '/parking' },
-        ],
-      },
-      {
         title: 'Univers Auri ✨',
         items: [
           { label: 'Auri Magnifique ✨', to: '/greatness' },

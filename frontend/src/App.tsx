@@ -32,9 +32,7 @@ export default function App() {
         <Route path="/valentin-ego" element={<ValentinEgoPage />} />
         <Route path="/greatness" element={<GreatnessPage />} />
 
-        {/* still to port */}
-        <Route path="/game" element={<PlaceholderPage title="Snake Amoureux 🐍" />} />
-        <Route path="/parking" element={<PlaceholderPage title="Parking Câlin 🚗" />} />
+        {/* games removed from the modern site */}
 
         <Route path="*" element={<PlaceholderPage title="404" />} />
       </Routes>
