@@ -12,6 +12,7 @@ import { BestTeachersPage } from './pages/BestTeachersPage'
 import { ValReasonsPage } from './pages/ValReasonsPage'
 import { ValentinEgoPage } from './pages/ValentinEgoPage'
 import { GreatnessPage } from './pages/GreatnessPage'
+import { Game2DPage } from './pages/Game2DPage'
 
 export default function App() {
   return (
@@ -21,6 +22,7 @@ export default function App() {
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/comments" element={<CommentsPage />} />
         <Route path="/test" element={<TestPage />} />
+        <Route path="/game2d" element={<Game2DPage />} />
 
         {/* legacy pages: ported */}
         <Route path="/resume" element={<ResumePage />} />

@@ -1,0 +1,186 @@
+import { useEffect, useMemo, useRef } from 'react'
+import { Link } from 'react-router-dom'
+import Phaser from 'phaser'
+
+class FarmScene extends Phaser.Scene {
+  private cursors!: Phaser.Types.Input.Keyboard.CursorKeys
+  private wasd!: { W: Phaser.Input.Keyboard.Key; A: Phaser.Input.Keyboard.Key; S: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key }
+  private player!: Phaser.GameObjects.Rectangle
+  private speed = 180
+
+  create() {
+    const w = this.scale.width
+
+    // Background (simple grass)
+    this.add.rectangle(0, 0, 4000, 4000, 0x2ecc71).setOrigin(0)
+
+    // A few obstacles
+    const obstacles: Phaser.GameObjects.Rectangle[] = []
+    const addRock = (x: number, y: number, ww: number, hh: number) => {
+      const r = this.add.rectangle(x, y, ww, hh, 0x7f8c8d).setOrigin(0.5)
+      obstacles.push(r)
+    }
+    addRock(400, 320, 120, 90)
+    addRock(700, 520, 200, 60)
+    addRock(300, 700, 80, 180)
+
+    // Player (tiny square for now)
+    this.player = this.add.rectangle(200, 200, 24, 24, 0xe91e63).setOrigin(0.5)
+
+    // Camera
+    this.cameras.main.setBounds(0, 0, 4000, 4000)
+    this.cameras.main.startFollow(this.player, true, 0.12, 0.12)
+
+    // Input
+    this.cursors = this.input.keyboard!.createCursorKeys()
+    this.wasd = this.input.keyboard!.addKeys('W,A,S,D') as unknown as {
+      W: Phaser.Input.Keyboard.Key
+      A: Phaser.Input.Keyboard.Key
+      S: Phaser.Input.Keyboard.Key
+      D: Phaser.Input.Keyboard.Key
+    }
+
+    // Simple “collision”: keep in bounds + push out of rectangles
+    this.events.on('update', () => {
+      this.constrainToWorld()
+      for (const o of obstacles) this.resolveAabb(this.player, o)
+    })
+
+    // UI hint
+    this.add
+      .text(w - 16, 16, 'WASD / flèches pour bouger', {
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        color: '#ffffff',
+        backgroundColor: 'rgba(0,0,0,0.35)',
+        padding: { left: 10, right: 10, top: 6, bottom: 6 },
+      })
+      .setOrigin(1, 0)
+      .setScrollFactor(0)
+  }
+
+  update(_: number, delta: number) {
+    const dt = delta / 1000
+
+    const left = this.cursors.left.isDown || this.wasd.A.isDown
+    const right = this.cursors.right.isDown || this.wasd.D.isDown
+    const up = this.cursors.up.isDown || this.wasd.W.isDown
+    const down = this.cursors.down.isDown || this.wasd.S.isDown
+
+    let vx = 0
+    let vy = 0
+    if (left) vx -= 1
+    if (right) vx += 1
+    if (up) vy -= 1
+    if (down) vy += 1
+
+    // normalize diagonal
+    if (vx !== 0 && vy !== 0) {
+      const inv = 1 / Math.sqrt(2)
+      vx *= inv
+      vy *= inv
+    }
+
+    this.player.x += vx * this.speed * dt
+    this.player.y += vy * this.speed * dt
+  }
+
+  private constrainToWorld() {
+    const half = 12
+    this.player.x = Phaser.Math.Clamp(this.player.x, half, 4000 - half)
+    this.player.y = Phaser.Math.Clamp(this.player.y, half, 4000 - half)
+  }
+
+  private resolveAabb(a: Phaser.GameObjects.Rectangle, b: Phaser.GameObjects.Rectangle) {
+    const ax1 = a.x - a.width / 2
+    const ay1 = a.y - a.height / 2
+    const ax2 = a.x + a.width / 2
+    const ay2 = a.y + a.height / 2
+
+    const bx1 = b.x - b.width / 2
+    const by1 = b.y - b.height / 2
+    const bx2 = b.x + b.width / 2
+    const by2 = b.y + b.height / 2
+
+    if (ax2 <= bx1 || ax1 >= bx2 || ay2 <= by1 || ay1 >= by2) return
+
+    const overlapX1 = bx2 - ax1
+    const overlapX2 = ax2 - bx1
+    const overlapY1 = by2 - ay1
+    const overlapY2 = ay2 - by1
+
+    const minX = Math.min(overlapX1, overlapX2)
+    const minY = Math.min(overlapY1, overlapY2)
+
+    if (minX < minY) {
+      // push left/right
+      if (overlapX1 < overlapX2) a.x += overlapX1
+      else a.x -= overlapX2
+    } else {
+      // push up/down
+      if (overlapY1 < overlapY2) a.y += overlapY1
+      else a.y -= overlapY2
+    }
+  }
+}
+
+export function Game2DPage() {
+  const hostRef = useRef<HTMLDivElement | null>(null)
+
+  const config = useMemo<Phaser.Types.Core.GameConfig>(
+    () => ({
+      type: Phaser.AUTO,
+      parent: undefined,
+      backgroundColor: '#111111',
+      scale: {
+        mode: Phaser.Scale.RESIZE,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+        width: '100%',
+        height: '100%',
+      },
+      scene: [FarmScene],
+      physics: {
+        default: 'arcade',
+        arcade: {
+          debug: false,
+        },
+      },
+    }),
+    [],
+  )
+
+  useEffect(() => {
+    if (!hostRef.current) return
+
+    const game = new Phaser.Game({ ...config, parent: hostRef.current })
+
+    return () => {
+      game.destroy(true)
+    }
+  }, [config])
+
+  return (
+    <div style={{ height: 'calc(100vh - 40px)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+        <h1 style={{ margin: '8px 0' }}>Jeu 2D (proto)</h1>
+        <Link to="/">← Retour</Link>
+      </div>
+
+      <div
+        ref={hostRef}
+        style={{
+          height: 'calc(100vh - 110px)',
+          width: '100%',
+          borderRadius: 16,
+          overflow: 'hidden',
+          border: '2px solid #ff69b4',
+          background: '#111',
+        }}
+      />
+
+      <p style={{ opacity: 0.8, marginTop: 10 }}>
+        MVP: déplacement top‑down, caméra, obstacles. Prochaine étape: tileset + sprite + collisions tuiles.
+      </p>
+    </div>
+  )
+}
