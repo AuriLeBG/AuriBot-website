@@ -2,14 +2,70 @@ import { useEffect, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import Phaser from 'phaser'
 
+type PlayerActor = {
+  sprite: Phaser.GameObjects.Image
+  nameText: Phaser.GameObjects.Text
+}
+
 class FarmScene extends Phaser.Scene {
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys
-  private wasd!: { W: Phaser.Input.Keyboard.Key; A: Phaser.Input.Keyboard.Key; S: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key }
-  private player!: Phaser.GameObjects.Rectangle
+  private wasd!: {
+    W: Phaser.Input.Keyboard.Key
+    A: Phaser.Input.Keyboard.Key
+    S: Phaser.Input.Keyboard.Key
+    D: Phaser.Input.Keyboard.Key
+  }
+
+  private player!: PlayerActor
+  private others: PlayerActor[] = []
   private speed = 180
 
   create() {
     const w = this.scale.width
+
+    // Generate a tiny 8-bit style player texture (16x16) procedurally
+    if (!this.textures.exists('player8')) {
+      this.textures.generate('player8', {
+        pixelWidth: 2,
+        data: [
+          '................',
+          '.....3333.......',
+          '....344443......',
+          '...34444443.....',
+          '..3344444433....',
+          '..3344444433....',
+          '....355553......',
+          '....355553......',
+          '....355553......',
+          '...33555533.....',
+          '..33.5555.33....',
+          '..3..5..5..3....',
+          '.....5..5.......',
+          '....55..55......',
+          '...55....55.....',
+          '................',
+        ],
+        // Phaser's Palette type expects a full map; we only use 3/4/5.
+        palette: {
+          0: '#00000000',
+          1: '#00000000',
+          2: '#00000000',
+          3: '#e91e63', // main
+          4: '#ff74b4', // highlight
+          5: '#222222', // details
+          6: '#00000000',
+          7: '#00000000',
+          8: '#00000000',
+          9: '#00000000',
+          A: '#00000000',
+          B: '#00000000',
+          C: '#00000000',
+          D: '#00000000',
+          E: '#00000000',
+          F: '#00000000',
+        },
+      })
+    }
 
     // Background (simple grass)
     this.add.rectangle(0, 0, 4000, 4000, 0x2ecc71).setOrigin(0)
@@ -24,12 +80,36 @@ class FarmScene extends Phaser.Scene {
     addRock(700, 520, 200, 60)
     addRock(300, 700, 80, 180)
 
-    // Player (tiny square for now)
-    this.player = this.add.rectangle(200, 200, 24, 24, 0xe91e63).setOrigin(0.5)
+    const username = window.localStorage.getItem('user') || 'Player'
+
+    const makeActor = (x: number, y: number, name: string): PlayerActor => {
+      const sprite = this.add.image(x, y, 'player8').setOrigin(0.5)
+      sprite.setScale(1)
+
+      const nameText = this.add
+        .text(x, y - 26, name, {
+          fontFamily: 'monospace',
+          fontSize: '13px',
+          color: '#ffffff',
+          backgroundColor: 'rgba(0,0,0,0.35)',
+          padding: { left: 6, right: 6, top: 3, bottom: 3 },
+        })
+        .setOrigin(0.5, 1)
+
+      return { sprite, nameText }
+    }
+
+    this.player = makeActor(200, 200, username)
+
+    // Mock other players (until we add real networking)
+    this.others = [
+      makeActor(340, 240, 'Tramin'),
+      makeActor(280, 360, 'Valentin'),
+    ]
 
     // Camera
     this.cameras.main.setBounds(0, 0, 4000, 4000)
-    this.cameras.main.startFollow(this.player, true, 0.12, 0.12)
+    this.cameras.main.startFollow(this.player.sprite, true, 0.12, 0.12)
 
     // Input
     this.cursors = this.input.keyboard!.createCursorKeys()
@@ -42,8 +122,12 @@ class FarmScene extends Phaser.Scene {
 
     // Simple “collision”: keep in bounds + push out of rectangles
     this.events.on('update', () => {
-      this.constrainToWorld()
-      for (const o of obstacles) this.resolveAabb(this.player, o)
+      this.constrainToWorld(this.player.sprite)
+      for (const o of obstacles) this.resolveAabb(this.player.sprite, o)
+
+      // Keep name tags above sprites
+      this.player.nameText.setPosition(this.player.sprite.x, this.player.sprite.y - 26)
+      for (const p of this.others) p.nameText.setPosition(p.sprite.x, p.sprite.y - 26)
     })
 
     // UI hint
@@ -81,21 +165,21 @@ class FarmScene extends Phaser.Scene {
       vy *= inv
     }
 
-    this.player.x += vx * this.speed * dt
-    this.player.y += vy * this.speed * dt
+    this.player.sprite.x += vx * this.speed * dt
+    this.player.sprite.y += vy * this.speed * dt
   }
 
-  private constrainToWorld() {
-    const half = 12
-    this.player.x = Phaser.Math.Clamp(this.player.x, half, 4000 - half)
-    this.player.y = Phaser.Math.Clamp(this.player.y, half, 4000 - half)
+  private constrainToWorld(obj: Phaser.GameObjects.Image) {
+    const half = 16
+    obj.x = Phaser.Math.Clamp(obj.x, half, 4000 - half)
+    obj.y = Phaser.Math.Clamp(obj.y, half, 4000 - half)
   }
 
-  private resolveAabb(a: Phaser.GameObjects.Rectangle, b: Phaser.GameObjects.Rectangle) {
-    const ax1 = a.x - a.width / 2
-    const ay1 = a.y - a.height / 2
-    const ax2 = a.x + a.width / 2
-    const ay2 = a.y + a.height / 2
+  private resolveAabb(a: Phaser.GameObjects.Image, b: Phaser.GameObjects.Rectangle) {
+    const ax1 = a.x - a.displayWidth / 2
+    const ay1 = a.y - a.displayHeight / 2
+    const ax2 = a.x + a.displayWidth / 2
+    const ay2 = a.y + a.displayHeight / 2
 
     const bx1 = b.x - b.width / 2
     const by1 = b.y - b.height / 2
@@ -113,11 +197,9 @@ class FarmScene extends Phaser.Scene {
     const minY = Math.min(overlapY1, overlapY2)
 
     if (minX < minY) {
-      // push left/right
       if (overlapX1 < overlapX2) a.x += overlapX1
       else a.x -= overlapX2
     } else {
-      // push up/down
       if (overlapY1 < overlapY2) a.y += overlapY1
       else a.y -= overlapY2
     }
