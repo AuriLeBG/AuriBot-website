@@ -3,6 +3,7 @@ import { AuthPage } from './pages/AuthPage'
 import { IndexPage } from './pages/IndexPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 import { TestPage } from './pages/TestPage'
+import { CommentsPage } from './pages/CommentsPage'
 
 export default function App() {
   return (
@@ -10,6 +11,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<IndexPage />} />
         <Route path="/auth" element={<AuthPage />} />
+        <Route path="/comments" element={<CommentsPage />} />
         <Route path="/test" element={<TestPage />} />
 
         {/* placeholders for legacy pages that will be ported */}
