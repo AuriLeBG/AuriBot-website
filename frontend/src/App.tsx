@@ -11,6 +11,7 @@ import { AnnoyancesPage } from './pages/AnnoyancesPage'
 import { BestTeachersPage } from './pages/BestTeachersPage'
 import { ValReasonsPage } from './pages/ValReasonsPage'
 import { ValentinEgoPage } from './pages/ValentinEgoPage'
+import { GreatnessPage } from './pages/GreatnessPage'
 
 export default function App() {
   return (
@@ -29,11 +30,11 @@ export default function App() {
         <Route path="/best-teachers" element={<BestTeachersPage />} />
         <Route path="/val-reasons" element={<ValReasonsPage />} />
         <Route path="/valentin-ego" element={<ValentinEgoPage />} />
+        <Route path="/greatness" element={<GreatnessPage />} />
 
         {/* still to port */}
         <Route path="/game" element={<PlaceholderPage title="Snake Amoureux 🐍" />} />
         <Route path="/parking" element={<PlaceholderPage title="Parking Câlin 🚗" />} />
-        <Route path="/greatness" element={<PlaceholderPage title="Auri Magnifique ✨" />} />
 
         <Route path="*" element={<PlaceholderPage title="404" />} />
       </Routes>
