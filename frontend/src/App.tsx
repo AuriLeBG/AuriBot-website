@@ -4,6 +4,13 @@ import { IndexPage } from './pages/IndexPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 import { TestPage } from './pages/TestPage'
 import { CommentsPage } from './pages/CommentsPage'
+import { ResumePage } from './pages/ResumePage'
+import { ManifestoPage } from './pages/ManifestoPage'
+import { LovePage } from './pages/LovePage'
+import { AnnoyancesPage } from './pages/AnnoyancesPage'
+import { BestTeachersPage } from './pages/BestTeachersPage'
+import { ValReasonsPage } from './pages/ValReasonsPage'
+import { ValentinEgoPage } from './pages/ValentinEgoPage'
 
 export default function App() {
   return (
@@ -14,18 +21,19 @@ export default function App() {
         <Route path="/comments" element={<CommentsPage />} />
         <Route path="/test" element={<TestPage />} />
 
-        {/* placeholders for legacy pages that will be ported */}
+        {/* legacy pages: ported */}
+        <Route path="/resume" element={<ResumePage />} />
+        <Route path="/manifesto" element={<ManifestoPage />} />
+        <Route path="/love" element={<LovePage />} />
+        <Route path="/annoyances" element={<AnnoyancesPage />} />
+        <Route path="/best-teachers" element={<BestTeachersPage />} />
+        <Route path="/val-reasons" element={<ValReasonsPage />} />
+        <Route path="/valentin-ego" element={<ValentinEgoPage />} />
+
+        {/* still to port */}
         <Route path="/game" element={<PlaceholderPage title="Snake Amoureux 🐍" />} />
         <Route path="/parking" element={<PlaceholderPage title="Parking Câlin 🚗" />} />
         <Route path="/greatness" element={<PlaceholderPage title="Auri Magnifique ✨" />} />
-        <Route path="/resume" element={<PlaceholderPage title="Mon CV ✨📖" />} />
-        <Route path="/manifesto" element={<PlaceholderPage title="Petit Manifeste Doux 📖" />} />
-        <Route path="/comments" element={<PlaceholderPage title="Livre Des Cœurs 💖" />} />
-        <Route path="/val-reasons" element={<PlaceholderPage title="Valentin Mon Amour 💕" />} />
-        <Route path="/valentin-ego" element={<PlaceholderPage title="Valentin Roi Des Cœurs 👑" />} />
-        <Route path="/love" element={<PlaceholderPage title="Surprise Trop Mimi 🎀" />} />
-        <Route path="/annoyances" element={<PlaceholderPage title="Mur Des Bisous 💋" />} />
-        <Route path="/best-teachers" element={<PlaceholderPage title="Top Profs Adorés 🌸" />} />
 
         <Route path="*" element={<PlaceholderPage title="404" />} />
       </Routes>
