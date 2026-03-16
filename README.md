@@ -19,11 +19,10 @@ docker compose up -d --build db backend frontend
 Aucun `npm run dev` en local : c'est le container `frontend-dev` qui fait le HMR.
 
 ```bash
-docker compose up -d --build db backend
-docker compose up -d --build frontend-dev
+docker compose up -d --build db backend frontend-dev
 ```
 
-- Frontend DEV (Vite): http://localhost:5173/
+- Frontend DEV (Vite): http://localhost/  (sert le dev server Vite sur le port 80)
 - Backend: http://localhost:8080
 
 Notes:
