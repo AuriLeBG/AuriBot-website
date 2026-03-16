@@ -259,6 +259,9 @@ class FarmScene extends Phaser.Scene {
         case 'hello':
           // ignore (sessionId)
           break
+        case 'you':
+          if (typeof m.id === 'string') this.myId = m.id
+          break
         case 'snapshot': {
           const players = (m.players as unknown[] | undefined) ?? []
           if (Array.isArray(players)) {
@@ -288,15 +291,6 @@ class FarmScene extends Phaser.Scene {
   private upsertOther(p: unknown) {
     const o = p as { id?: unknown; name?: unknown; x?: unknown; y?: unknown }
     if (!o || typeof o.id !== 'string') return
-
-    // Detect our own id by name+position on first snapshot (simple heuristic)
-    if (!this.myId && typeof o.name === 'string' && o.name === this.player.nameText.text) {
-      const px = typeof o.x === 'number' ? o.x : 0
-      const py = typeof o.y === 'number' ? o.y : 0
-      const dx = Math.abs(px - this.player.sprite.x)
-      const dy = Math.abs(py - this.player.sprite.y)
-      if (dx < 1 && dy < 1) this.myId = o.id
-    }
 
     if (this.myId && o.id === this.myId) return
 

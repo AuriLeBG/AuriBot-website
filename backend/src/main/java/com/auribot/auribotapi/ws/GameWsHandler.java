@@ -62,6 +62,11 @@ public class GameWsHandler extends TextWebSocketHandler {
 		PlayerState me = new PlayerState(publicId, name, x, y);
 		players.put(session.getId(), me);
 
+		// Tell the joiner their own public id (so the client can avoid rendering itself twice)
+		send(session, mapper.createObjectNode()
+				.put("type", "you")
+				.put("id", me.id()));
+
 		// Send snapshot to the joiner
 		var snapshot = mapper.createObjectNode();
 		snapshot.put("type", "snapshot");
