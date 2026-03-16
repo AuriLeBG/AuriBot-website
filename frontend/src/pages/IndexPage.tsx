@@ -7,7 +7,7 @@ type MenuItem = { label: string; to: string }
 
 type MenuSection = { title: string; items: MenuItem[] }
 
-const DEFAULT_API_BASE = 'http://87.106.240.49:8080'
+const DEFAULT_API_BASE = ''
 
 export function IndexPage() {
   const navigate = useNavigate()
