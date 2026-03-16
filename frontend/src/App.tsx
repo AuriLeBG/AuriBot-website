@@ -2,6 +2,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { AuthPage } from './pages/AuthPage'
 import { IndexPage } from './pages/IndexPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
+import { TestPage } from './pages/TestPage'
 
 export default function App() {
   return (
@@ -9,6 +10,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<IndexPage />} />
         <Route path="/auth" element={<AuthPage />} />
+        <Route path="/test" element={<TestPage />} />
 
         {/* placeholders for legacy pages that will be ported */}
         <Route path="/game" element={<PlaceholderPage title="Snake Amoureux 🐍" />} />
