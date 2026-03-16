@@ -24,6 +24,7 @@ export function IndexPage() {
         title: 'Univers Auri ✨',
         items: [
           { label: 'Jeu 2D (proto) 🌾', to: '/game2d' },
+          { label: 'Coin Gwen ✂️🩵', to: '/gwen' },
           { label: 'Auri Magnifique ✨', to: '/greatness' },
           { label: 'Mon CV ✨📖', to: '/resume' },
           { label: 'Petit Manifeste Doux 📖', to: '/manifesto' },
