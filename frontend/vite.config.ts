@@ -14,6 +14,12 @@ export default defineConfig({
         target: 'http://backend:8080',
         changeOrigin: true,
       },
+      '/ws': {
+        // WebSocket proxy to the backend container
+        target: 'http://backend:8080',
+        ws: true,
+        changeOrigin: true,
+      },
     },
   },
 })
