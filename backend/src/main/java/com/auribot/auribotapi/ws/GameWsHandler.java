@@ -22,6 +22,9 @@ public class GameWsHandler extends TextWebSocketHandler {
 	private final Map<String, PlayerState> players = new ConcurrentHashMap<>();
 	// public player id -> session id
 	private final ConcurrentMap<String, String> sessionIdByPublicId = new ConcurrentHashMap<>();
+	// session id -> last seen timestamp (ms)
+	private final ConcurrentMap<String, Long> lastSeenBySessionId = new ConcurrentHashMap<>();
+	private static final long STALE_SESSION_MS = 6000;
 
 	// Rock-Paper-Scissors matches, keyed by sorted pair "idA|idB"
 	private final ConcurrentMap<String, RpsMatch> rpsMatches = new ConcurrentHashMap<>();
@@ -32,6 +35,7 @@ public class GameWsHandler extends TextWebSocketHandler {
 	@Override
 	public void afterConnectionEstablished(WebSocketSession session) throws Exception {
 		sessions.put(session.getId(), session);
+		lastSeenBySessionId.put(session.getId(), System.currentTimeMillis());
 		// Wait for a "join" message to create a player.
 		send(session, mapper.createObjectNode()
 				.put("type", "hello")
@@ -46,6 +50,8 @@ public class GameWsHandler extends TextWebSocketHandler {
 		} catch (IOException e) {
 			return;
 		}
+
+		lastSeenBySessionId.put(session.getId(), System.currentTimeMillis());
 
 		String type = root.path("type").asText("");
 		switch (type) {
@@ -238,12 +244,38 @@ public class GameWsHandler extends TextWebSocketHandler {
 	@Override
 	public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
 		sessions.remove(session.getId());
+		lastSeenBySessionId.remove(session.getId());
 		PlayerState removed = players.remove(session.getId());
 		if (removed != null) {
 			sessionIdByPublicId.remove(removed.id());
 			broadcast(mapper.createObjectNode()
 					.put("type", "leave")
 					.put("id", removed.id()));
+		}
+	}
+
+	public void cleanupStaleSessions() {
+		long now = System.currentTimeMillis();
+
+		for (var entry : sessions.entrySet()) {
+			String sid = entry.getKey();
+			WebSocketSession s = entry.getValue();
+			Long last = lastSeenBySessionId.get(sid);
+
+			boolean open = s != null && s.isOpen();
+			boolean stale = last != null && (now - last) > STALE_SESSION_MS;
+
+			if (!open || stale) {
+				sessions.remove(sid);
+				lastSeenBySessionId.remove(sid);
+				PlayerState removed = players.remove(sid);
+				if (removed != null) {
+					sessionIdByPublicId.remove(removed.id());
+					broadcast(mapper.createObjectNode()
+							.put("type", "leave")
+							.put("id", removed.id()));
+				}
+			}
 		}
 	}
 

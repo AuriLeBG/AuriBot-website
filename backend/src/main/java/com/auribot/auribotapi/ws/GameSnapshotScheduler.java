@@ -15,7 +15,8 @@ public class GameSnapshotScheduler {
 	// - stale/ghost players if a close event is missed
 	// - clients can reconcile consistently
 	@Scheduled(fixedDelay = 1500)
-	public void broadcastSnapshot() {
+	public void tick() {
+		handler.cleanupStaleSessions();
 		handler.broadcastSnapshot();
 	}
 }
