@@ -291,13 +291,11 @@ class FarmScene extends Phaser.Scene {
           }
           break
         case 'snapshot': {
-          // Snapshot may arrive before we know our public id; we upsert anyway,
-          // but we also purge self once we learn it in the 'you' message.
+          // Snapshot may arrive before we know our public id. We'll reconcile the whole set.
           const players = (m.players as unknown[] | undefined) ?? []
           if (Array.isArray(players)) {
-            for (const p of players) this.upsertOther(p)
+            this.reconcileSnapshot(players)
           }
-          if (this.myId) this.removeOther(this.myId)
           break
         }
         case 'join':
@@ -322,6 +320,28 @@ class FarmScene extends Phaser.Scene {
 
     ws.onclose = () => {
       // Could implement reconnect here.
+    }
+  }
+
+  private reconcileSnapshot(players: unknown[]) {
+    const seen = new Set<string>()
+
+    for (const p of players) {
+      const o = p as { id?: unknown }
+      if (!o || typeof o.id !== 'string') continue
+      seen.add(o.id)
+      this.upsertOther(p)
+    }
+
+    // If myId is known, ensure we don't render ourselves.
+    if (this.myId) {
+      this.removeOther(this.myId)
+      seen.delete(this.myId)
+    }
+
+    // Remove any actors not present in the snapshot (stale/ghost players).
+    for (const id of this.othersById.keys()) {
+      if (!seen.has(id)) this.removeOther(id)
     }
   }
 
