@@ -149,11 +149,20 @@ class FarmScene extends Phaser.Scene {
       }
     })
 
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+    const leaveAndClose = () => {
       // User left the route (SPA navigation): leave immediately.
+      // Important: give the 'leave' frame a tiny moment to flush before closing.
       try {
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
           this.ws.send(JSON.stringify({ type: 'leave' }))
+          window.setTimeout(() => {
+            try {
+              this.ws?.close()
+            } catch {
+              // ignore
+            }
+          }, 80)
+          return
         }
       } catch {
         // ignore
@@ -164,7 +173,11 @@ class FarmScene extends Phaser.Scene {
       } catch {
         // ignore
       }
-    })
+    }
+
+    // Phaser can fire SHUTDOWN or DESTROY depending on how the game is torn down.
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, leaveAndClose)
+    this.events.once(Phaser.Scenes.Events.DESTROY, leaveAndClose)
 
     this.createRpsUi()
 
