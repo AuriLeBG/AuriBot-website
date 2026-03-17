@@ -232,8 +232,8 @@ class FarmScene extends Phaser.Scene {
   update(time: number, delta: number) {
     const dt = delta / 1000
 
-    // If we are currently picking RPS, freeze movement (keep it simple).
-    const inputLocked = this.rps.status === 'choosing'
+    // If we are in a modal interaction (RPS or Arcade/DDR), freeze movement.
+    const inputLocked = this.rps.status === 'choosing' || !!this.ddr?.active
 
     const left = !inputLocked && (this.cursors.left.isDown || this.wasd.A.isDown)
     const right = !inputLocked && (this.cursors.right.isDown || this.wasd.D.isDown)
