@@ -24,7 +24,7 @@ public class GameWsHandler extends TextWebSocketHandler {
 	private final ConcurrentMap<String, String> sessionIdByPublicId = new ConcurrentHashMap<>();
 	// session id -> last seen timestamp (ms)
 	private final ConcurrentMap<String, Long> lastSeenBySessionId = new ConcurrentHashMap<>();
-	private static final long STALE_SESSION_MS = 6000;
+	private static final long STALE_SESSION_MS = 15000;
 
 	// Rock-Paper-Scissors matches, keyed by sorted pair "idA|idB"
 	private final ConcurrentMap<String, RpsMatch> rpsMatches = new ConcurrentHashMap<>();

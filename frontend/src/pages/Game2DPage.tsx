@@ -30,6 +30,8 @@ class FarmScene extends Phaser.Scene {
   private lastSentAt = 0
   private speed = 180
 
+  private pingTimer?: number
+
   private rps: RpsState = { status: 'idle' }
   private rpsUi?: {
     box: Phaser.GameObjects.Rectangle
@@ -267,6 +269,29 @@ class FarmScene extends Phaser.Scene {
           y: this.player.sprite.y,
         }),
       )
+
+      // Heartbeat: keep session alive even when AFK.
+      // Also helps the server detect stale tabs that are backgrounded/frozen.
+      this.pingTimer = window.setInterval(() => {
+        try {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'ping' }))
+          }
+        } catch {
+          // ignore
+        }
+      }, 2500)
+
+      // Try to close cleanly on navigation/back (BFCache can keep things weird).
+      const closeWs = () => {
+        try {
+          ws.close()
+        } catch {
+          // ignore
+        }
+      }
+      window.addEventListener('pagehide', closeWs, { once: true })
+      window.addEventListener('beforeunload', closeWs, { once: true })
     }
 
     ws.onmessage = (ev) => {
@@ -319,6 +344,10 @@ class FarmScene extends Phaser.Scene {
     }
 
     ws.onclose = () => {
+      if (this.pingTimer) {
+        window.clearInterval(this.pingTimer)
+        this.pingTimer = undefined
+      }
       // Could implement reconnect here.
     }
   }
