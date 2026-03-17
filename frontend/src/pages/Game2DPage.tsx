@@ -91,6 +91,13 @@ class FarmScene extends Phaser.Scene {
     // Background (simple grass)
     this.add.rectangle(0, 0, 4000, 4000, 0x2ecc71).setOrigin(0)
 
+    // Spawn safe zone (no RPS)
+    const SAFE = { x: 200, y: 200, r: 120 }
+    this.add
+      .circle(SAFE.x, SAFE.y, SAFE.r, 0x000000, 0.12)
+      .setStrokeStyle(2, 0xffffff, 0.12)
+      .setOrigin(0.5)
+
     // A few obstacles
     const obstacles: Phaser.GameObjects.Rectangle[] = []
     const addRock = (x: number, y: number, ww: number, hh: number) => {
@@ -465,6 +472,14 @@ class FarmScene extends Phaser.Scene {
     if (!this.myId) return
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return
     if (this.rps.status !== 'idle') return
+
+    // Safe zone around spawn: no RPS can be initiated.
+    const SAFE_X = 200
+    const SAFE_Y = 200
+    const SAFE_R = 140
+    const sdx = this.player.sprite.x - SAFE_X
+    const sdy = this.player.sprite.y - SAFE_Y
+    if (sdx * sdx + sdy * sdy <= SAFE_R * SAFE_R) return
 
     // Simple overlap check against other players.
     // Player texture is ~16px wide; use a generous radius.
