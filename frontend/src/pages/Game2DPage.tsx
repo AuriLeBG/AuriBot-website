@@ -56,7 +56,7 @@ class FarmScene extends Phaser.Scene {
     score: number
     combo: number
     life: number
-    notes: { dir: 'L' | 'D' | 'U' | 'R'; t: number; hit?: boolean; sprite: Phaser.GameObjects.Text }[]
+    notes: { dir: 'L' | 'D' | 'U' | 'R'; t: number; hit?: boolean; sprite?: Phaser.GameObjects.Text }[]
     ui: {
       panel: Phaser.GameObjects.Rectangle
       title: Phaser.GameObjects.Text
@@ -899,7 +899,7 @@ class FarmScene extends Phaser.Scene {
     this.ddr.audio = audio
 
     // Clear old notes
-    for (const n of this.ddr.notes) n.sprite.destroy()
+    for (const n of this.ddr.notes) n.sprite?.destroy()
     this.ddr.notes = []
 
     this.setDdrUiVisible(true)
@@ -914,22 +914,17 @@ class FarmScene extends Phaser.Scene {
     // Make a fixed-ish pattern so players can learn it.
     const pattern: ('L' | 'D' | 'U' | 'R')[] = ['L', 'D', 'U', 'R', 'R', 'U', 'D', 'L']
 
-    const noteCount = 32
+    // Requested duration: 3m33 = 213s.
+    // We schedule notes for the whole duration, but we only instantiate sprites when they get close.
+    const durationMs = 213_000
+
+    // Spawn a note every beat (500ms @120BPM) => ~426 notes for 3m33. That’s fine as data,
+    // but we instantiate only a small rolling window of sprites.
+    const noteCount = Math.floor(durationMs / beatMs)
     for (let i = 0; i < noteCount; i++) {
       const dir = pattern[i % pattern.length]
       const t = base + i * beatMs
-      const x = this.laneX(dir)
-      const sprite = this.add
-        .text(x, 40, this.dirSymbol(dir), {
-          fontFamily: 'monospace',
-          fontSize: '26px',
-          color: '#ffd1ea',
-        })
-        .setOrigin(0.5)
-        .setScrollFactor(0)
-        .setDepth(1102)
-
-      this.ddr.notes.push({ dir, t, sprite })
+      this.ddr.notes.push({ dir, t })
     }
 
     // Start music after the notes are scheduled.
@@ -951,7 +946,7 @@ class FarmScene extends Phaser.Scene {
     }
 
     // Clean notes
-    for (const n of this.ddr.notes) n.sprite.destroy()
+    for (const n of this.ddr.notes) n.sprite?.destroy()
     this.ddr.notes = []
 
     this.setDdrUiVisible(false)
@@ -1009,16 +1004,45 @@ class FarmScene extends Phaser.Scene {
     const hitY = 110
     const travelMs = 1200
 
+    // Stop condition: exactly 3m33 from start.
+    if (clockMs - this.ddr.startedAt >= 213_000) {
+      this.stopDdr('done')
+      return
+    }
+
     for (const n of this.ddr.notes) {
+      if (n.hit) continue
+
       const dt = n.t - clockMs
-      const progress = 1 - dt / travelMs
-      const y = Phaser.Math.Clamp(40 + progress * (hitY - 40), 40, hitY)
-      n.sprite.setPosition(this.laneX(n.dir), y)
+
+      // Instantiate sprite only when within a small rolling window.
+      // (travel + grace)
+      if (!n.sprite && dt < travelMs + 250 && dt > -400) {
+        const x = this.laneX(n.dir)
+        n.sprite = this.add
+          .text(x, 40, this.dirSymbol(n.dir), {
+            fontFamily: 'monospace',
+            fontSize: '26px',
+            color: '#ffd1ea',
+          })
+          .setOrigin(0.5)
+          .setScrollFactor(0)
+          .setDepth(1102)
+      }
+
+      if (n.sprite) {
+        const progress = 1 - dt / travelMs
+        const y = Phaser.Math.Clamp(40 + progress * (hitY - 40), 40, hitY)
+        n.sprite.setPosition(this.laneX(n.dir), y)
+      }
 
       // Missed
-      if (!n.hit && clockMs > n.t + 170) {
+      if (clockMs > n.t + 170) {
         n.hit = true
-        n.sprite.setAlpha(0.15)
+        if (n.sprite) {
+          n.sprite.destroy()
+          n.sprite = undefined
+        }
         this.ddr.combo = 0
         this.ddr.life -= 8
       }
@@ -1032,10 +1056,7 @@ class FarmScene extends Phaser.Scene {
       return
     }
 
-    const remaining = this.ddr.notes.some((n) => !n.hit)
-    if (!remaining) {
-      this.stopDdr('done')
-    }
+    // (No "all notes consumed" end condition; duration governs the session.)
   }
 
   private onDdrHit(dir: 'L' | 'D' | 'U' | 'R') {
@@ -1079,7 +1100,10 @@ class FarmScene extends Phaser.Scene {
     }
 
     n.hit = true
-    n.sprite.setAlpha(0.15)
+    if (n.sprite) {
+      n.sprite.destroy()
+      n.sprite = undefined
+    }
 
     if (pts > 0) {
       this.ddr.combo += 1
