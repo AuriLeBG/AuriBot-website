@@ -6,10 +6,8 @@ type Mode = 'signup' | 'login'
 
 export function AuthPage() {
   const navigate = useNavigate()
-  const apiBase = useMemo(
-    () => import.meta.env.VITE_API_BASE || 'http://87.106.240.49:8080',
-    [],
-  )
+  // Default: same-origin (works with Vite proxy / nginx reverse-proxy). Override with VITE_API_BASE if needed.
+  const apiBase = useMemo(() => import.meta.env.VITE_API_BASE || '', [])
 
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')

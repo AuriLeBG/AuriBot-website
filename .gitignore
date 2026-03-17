@@ -1,0 +1,23 @@
+# OpenClaw workspace noise
+.openclaw/
+.clawhub/
+memory/
+skills/
+
+# Local agent docs/state
+AGENTS.md
+SOUL.md
+TOOLS.md
+USER.md
+IDENTITY.md
+MEMORY.md
+HEARTBEAT.md
+BOOTSTRAP.md
+
+# Legacy projects (not part of modern repo push)
+AuriBot-modern/
+AuriBot-website/
+
+# misc
+hello.py
+resume_template.txt

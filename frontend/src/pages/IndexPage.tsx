@@ -7,7 +7,7 @@ type MenuItem = { label: string; to: string }
 
 type MenuSection = { title: string; items: MenuItem[] }
 
-const DEFAULT_API_BASE = 'http://87.106.240.49:8080'
+const DEFAULT_API_BASE = ''
 
 export function IndexPage() {
   const navigate = useNavigate()
@@ -23,6 +23,8 @@ export function IndexPage() {
       {
         title: 'Univers Auri ✨',
         items: [
+          { label: 'Jeu 2D (proto) 🌾', to: '/game2d' },
+          { label: 'Coin Gwen ✂️🩵', to: '/gwen' },
           { label: 'Auri Magnifique ✨', to: '/greatness' },
           { label: 'Mon CV ✨📖', to: '/resume' },
           { label: 'Petit Manifeste Doux 📖', to: '/manifesto' },

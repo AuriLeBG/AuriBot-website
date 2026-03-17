@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 
 export function TestPage() {
-  const apiBase = useMemo(
-    () => import.meta.env.VITE_API_BASE || 'http://87.106.240.49:8080',
-    [],
-  )
+  // Default: same-origin (works with Vite proxy / nginx reverse-proxy). Override with VITE_API_BASE if needed.
+  const apiBase = useMemo(() => import.meta.env.VITE_API_BASE || '', [])
   const [health, setHealth] = useState<string>('(loading)')
   const [version, setVersion] = useState<string>('(loading)')
 
