@@ -247,6 +247,20 @@ public class GameWsHandler extends TextWebSocketHandler {
 		}
 	}
 
+	public void broadcastSnapshot() {
+		var snapshot = mapper.createObjectNode();
+		snapshot.put("type", "snapshot");
+		var arr = snapshot.putArray("players");
+		for (PlayerState p : players.values()) {
+			arr.add(mapper.createObjectNode()
+					.put("id", p.id())
+					.put("name", p.name())
+					.put("x", p.x())
+					.put("y", p.y()));
+		}
+		broadcast(snapshot);
+	}
+
 	private void broadcast(JsonNode msg) {
 		String payload;
 		try {
