@@ -64,6 +64,7 @@ class FarmScene extends Phaser.Scene {
       scoreText: Phaser.GameObjects.Text
       help: Phaser.GameObjects.Text
     }
+    audio?: HTMLAudioElement
   }
 
   create() {
@@ -886,17 +887,37 @@ class FarmScene extends Phaser.Scene {
     this.ddr.combo = 0
     this.ddr.life = 100
 
+    // Prepare audio (served from Vite public/)
+    try {
+      this.ddr.audio?.pause()
+    } catch {
+      // ignore
+    }
+    const audio = new Audio('/tourne-toi.mp3')
+    audio.preload = 'auto'
+    audio.volume = 0.7
+    this.ddr.audio = audio
+
     // Clear old notes
     for (const n of this.ddr.notes) n.sprite.destroy()
     this.ddr.notes = []
 
     this.setDdrUiVisible(true)
 
-    // Spawn a short chart: 24 notes, ~0.6s apart
-    const dirs: ('L' | 'D' | 'U' | 'R')[] = ['L', 'D', 'U', 'R']
-    for (let i = 0; i < 24; i++) {
-      const dir = dirs[(Math.random() * dirs.length) | 0]
-      const t = this.ddr.startedAt + 1200 + i * 600
+    // Chart generation: align notes to the music grid (approx).
+    // We start the first notes slightly after music start.
+    const base = this.ddr.startedAt + 900
+
+    // Approx 120 BPM => 500ms/beat. If the song differs, tweak here.
+    const beatMs = 500
+
+    // Make a fixed-ish pattern so players can learn it.
+    const pattern: ('L' | 'D' | 'U' | 'R')[] = ['L', 'D', 'U', 'R', 'R', 'U', 'D', 'L']
+
+    const noteCount = 32
+    for (let i = 0; i < noteCount; i++) {
+      const dir = pattern[i % pattern.length]
+      const t = base + i * beatMs
       const x = this.laneX(dir)
       const sprite = this.add
         .text(x, 40, this.dirSymbol(dir), {
@@ -910,11 +931,24 @@ class FarmScene extends Phaser.Scene {
 
       this.ddr.notes.push({ dir, t, sprite })
     }
+
+    // Start music after the notes are scheduled.
+    void audio.play().catch(() => {
+      // Autoplay can be blocked until user interaction; E press counts as interaction usually.
+      // If blocked, the game still works (timing falls back to scene time).
+    })
   }
 
   private stopDdr(reason: 'quit' | 'dead' | 'done') {
     if (!this.ddr) return
     this.ddr.active = false
+
+    try {
+      this.ddr.audio?.pause()
+      if (this.ddr.audio) this.ddr.audio.currentTime = 0
+    } catch {
+      // ignore
+    }
 
     // Clean notes
     for (const n of this.ddr.notes) n.sprite.destroy()
@@ -958,6 +992,9 @@ class FarmScene extends Phaser.Scene {
   private tickDdr(time: number) {
     if (!this.ddr?.active || !this.ddr.ui) return
 
+    // Use audio clock if available (more stable), fallback to scene time.
+    const clockMs = this.ddr.audio && !this.ddr.audio.paused ? this.ddr.startedAt + this.ddr.audio.currentTime * 1000 : time
+
     // keep UI centered on resize
     const w = this.scale.width
     this.ddr.ui.panel.setPosition(w / 2, 120)
@@ -973,13 +1010,13 @@ class FarmScene extends Phaser.Scene {
     const travelMs = 1200
 
     for (const n of this.ddr.notes) {
-      const dt = n.t - time
+      const dt = n.t - clockMs
       const progress = 1 - dt / travelMs
       const y = Phaser.Math.Clamp(40 + progress * (hitY - 40), 40, hitY)
       n.sprite.setPosition(this.laneX(n.dir), y)
 
       // Missed
-      if (!n.hit && time > n.t + 170) {
+      if (!n.hit && clockMs > n.t + 170) {
         n.hit = true
         n.sprite.setAlpha(0.15)
         this.ddr.combo = 0
@@ -1004,7 +1041,7 @@ class FarmScene extends Phaser.Scene {
   private onDdrHit(dir: 'L' | 'D' | 'U' | 'R') {
     if (!this.ddr?.active) return
 
-    const now = this.time.now
+    const now = this.ddr.audio && !this.ddr.audio.paused ? this.ddr.startedAt + this.ddr.audio.currentTime * 1000 : this.time.now
     // Find nearest unhit note for that dir
     let best: { idx: number; delta: number } | null = null
     for (let i = 0; i < this.ddr.notes.length; i++) {
