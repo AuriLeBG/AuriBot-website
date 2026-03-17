@@ -57,6 +57,7 @@ public class GameWsHandler extends TextWebSocketHandler {
 		switch (type) {
 			case "join" -> handleJoin(session, root);
 			case "move" -> handleMove(session, root);
+			case "leave" -> handleLeave(session);
 			case "rps_challenge" -> handleRpsChallenge(session, root);
 			case "rps_choice" -> handleRpsChoice(session, root);
 			case "ping" -> send(session, mapper.createObjectNode().put("type", "pong"));
@@ -251,6 +252,21 @@ public class GameWsHandler extends TextWebSocketHandler {
 			broadcast(mapper.createObjectNode()
 					.put("type", "leave")
 					.put("id", removed.id()));
+		}
+	}
+
+	private void handleLeave(WebSocketSession session) throws IOException {
+		// Client-requested leave (e.g., user navigates away). Make it immediate.
+		PlayerState removed = players.remove(session.getId());
+		if (removed != null) {
+			sessionIdByPublicId.remove(removed.id());
+			broadcast(mapper.createObjectNode()
+					.put("type", "leave")
+					.put("id", removed.id()));
+		}
+		try {
+			session.close();
+		} catch (Exception ignored) {
 		}
 	}
 

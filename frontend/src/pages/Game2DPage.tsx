@@ -150,6 +150,15 @@ class FarmScene extends Phaser.Scene {
     })
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      // User left the route (SPA navigation): leave immediately.
+      try {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+          this.ws.send(JSON.stringify({ type: 'leave' }))
+        }
+      } catch {
+        // ignore
+      }
+
       try {
         this.ws?.close()
       } catch {
