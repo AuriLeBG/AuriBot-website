@@ -14,6 +14,7 @@ import { ValentinEgoPage } from './pages/ValentinEgoPage'
 import { GreatnessPage } from './pages/GreatnessPage'
 import { Game2DPage } from './pages/Game2DPage'
 import { GwenPage } from './pages/GwenPage'
+import { WordlePage } from './pages/WordlePage'
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
         <Route path="/test" element={<TestPage />} />
         <Route path="/game2d" element={<Game2DPage />} />
         <Route path="/gwen" element={<GwenPage />} />
+        <Route path="/wordle" element={<WordlePage />} />
 
         {/* legacy pages: ported */}
         <Route path="/resume" element={<ResumePage />} />

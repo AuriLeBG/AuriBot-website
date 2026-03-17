@@ -25,6 +25,7 @@ export function IndexPage() {
         items: [
           { label: 'Jeu 2D (proto) 🌾', to: '/game2d' },
           { label: 'Coin Gwen ✂️🩵', to: '/gwen' },
+          { label: 'Wordle (Auri) 🔤', to: '/wordle' },
           { label: 'Auri Magnifique ✨', to: '/greatness' },
           { label: 'Mon CV ✨📖', to: '/resume' },
           { label: 'Petit Manifeste Doux 📖', to: '/manifesto' },
