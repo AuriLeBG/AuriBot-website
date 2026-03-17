@@ -284,13 +284,20 @@ class FarmScene extends Phaser.Scene {
           // ignore (sessionId)
           break
         case 'you':
-          if (typeof m.id === 'string') this.myId = m.id
+          if (typeof m.id === 'string') {
+            this.myId = m.id
+            // If we rendered ourselves as an "other" before receiving our id (race), clean it up.
+            this.removeOther(this.myId)
+          }
           break
         case 'snapshot': {
+          // Snapshot may arrive before we know our public id; we upsert anyway,
+          // but we also purge self once we learn it in the 'you' message.
           const players = (m.players as unknown[] | undefined) ?? []
           if (Array.isArray(players)) {
             for (const p of players) this.upsertOther(p)
           }
+          if (this.myId) this.removeOther(this.myId)
           break
         }
         case 'join':
