@@ -7,6 +7,13 @@ type PlayerActor = {
   nameText: Phaser.GameObjects.Text
 }
 
+type RpsChoice = 'rock' | 'paper' | 'scissors'
+
+type RpsState =
+  | { status: 'idle' }
+  | { status: 'choosing'; matchId: string; opponentId: string; opponentName: string; sent?: RpsChoice }
+  | { status: 'result'; text: string; until: number }
+
 class FarmScene extends Phaser.Scene {
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys
   private wasd!: {
@@ -22,6 +29,15 @@ class FarmScene extends Phaser.Scene {
   private myId?: string
   private lastSentAt = 0
   private speed = 180
+
+  private rps: RpsState = { status: 'idle' }
+  private rpsUi?: {
+    box: Phaser.GameObjects.Rectangle
+    title: Phaser.GameObjects.Text
+    btns: { rock: Phaser.GameObjects.Text; paper: Phaser.GameObjects.Text; scissors: Phaser.GameObjects.Text }
+    hint: Phaser.GameObjects.Text
+  }
+  private lastRpsChallengeAtByOpponent: Map<string, number> = new Map()
 
   create() {
     const w = this.scale.width
@@ -139,6 +155,8 @@ class FarmScene extends Phaser.Scene {
       }
     })
 
+    this.createRpsUi()
+
     // UI hint
     this.add
       .text(w - 16, 16, 'WASD / flèches pour bouger', {
@@ -155,10 +173,13 @@ class FarmScene extends Phaser.Scene {
   update(time: number, delta: number) {
     const dt = delta / 1000
 
-    const left = this.cursors.left.isDown || this.wasd.A.isDown
-    const right = this.cursors.right.isDown || this.wasd.D.isDown
-    const up = this.cursors.up.isDown || this.wasd.W.isDown
-    const down = this.cursors.down.isDown || this.wasd.S.isDown
+    // If we are currently picking RPS, freeze movement (keep it simple).
+    const inputLocked = this.rps.status === 'choosing'
+
+    const left = !inputLocked && (this.cursors.left.isDown || this.wasd.A.isDown)
+    const right = !inputLocked && (this.cursors.right.isDown || this.wasd.D.isDown)
+    const up = !inputLocked && (this.cursors.up.isDown || this.wasd.W.isDown)
+    const down = !inputLocked && (this.cursors.down.isDown || this.wasd.S.isDown)
 
     let vx = 0
     let vy = 0
@@ -188,6 +209,9 @@ class FarmScene extends Phaser.Scene {
         this.sendPos()
       }
     }
+
+    this.maybeTriggerRps(time)
+    this.tickRpsUi(time)
   }
 
   private constrainToWorld(obj: Phaser.GameObjects.Image) {
@@ -278,6 +302,12 @@ class FarmScene extends Phaser.Scene {
         case 'pos':
           this.updatePos(m)
           break
+        case 'rps_start':
+          this.onRpsStart(m)
+          break
+        case 'rps_result':
+          this.onRpsResult(m)
+          break
         default:
           break
       }
@@ -351,6 +381,207 @@ class FarmScene extends Phaser.Scene {
         y: this.player.sprite.y,
       }),
     )
+  }
+
+  private maybeTriggerRps(time: number) {
+    if (!this.myId) return
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return
+    if (this.rps.status !== 'idle') return
+
+    // Simple overlap check against other players.
+    // Player texture is ~16px wide; use a generous radius.
+    const R = 18
+
+    for (const [id, actor] of this.othersById.entries()) {
+      const dx = actor.sprite.x - this.player.sprite.x
+      const dy = actor.sprite.y - this.player.sprite.y
+      if (dx * dx + dy * dy > R * R) continue
+
+      // deterministic initiator to avoid both spamming: lower id initiates
+      if (this.myId > id) continue
+
+      const last = this.lastRpsChallengeAtByOpponent.get(id) ?? 0
+      if (time - last < 2500) continue
+      this.lastRpsChallengeAtByOpponent.set(id, time)
+
+      this.ws.send(
+        JSON.stringify({
+          type: 'rps_challenge',
+          targetId: id,
+        }),
+      )
+
+      // only challenge one at a time
+      break
+    }
+  }
+
+  private createRpsUi() {
+    const w = this.scale.width
+
+    const box = this.add
+      .rectangle(w / 2, 70, 520, 110, 0x000000, 0.55)
+      .setStrokeStyle(2, 0xff69b4, 0.6)
+      .setScrollFactor(0)
+      .setDepth(1000)
+      .setVisible(false)
+
+    const title = this.add
+      .text(w / 2, 30, 'Pierre Feuille Ciseaux', {
+        fontFamily: 'monospace',
+        fontSize: '18px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5, 0)
+      .setScrollFactor(0)
+      .setDepth(1001)
+      .setVisible(false)
+
+    const mkBtn = (x: number, label: string) =>
+      this.add
+        .text(x, 70, label, {
+          fontFamily: 'monospace',
+          fontSize: '18px',
+          color: '#ffffff',
+          backgroundColor: 'rgba(255,255,255,0.10)',
+          padding: { left: 10, right: 10, top: 6, bottom: 6 },
+        })
+        .setOrigin(0.5)
+        .setScrollFactor(0)
+        .setDepth(1001)
+        .setInteractive({ useHandCursor: true })
+        .setVisible(false)
+
+    const rock = mkBtn(w / 2 - 140, '🪨 Pierre')
+    const paper = mkBtn(w / 2, '📄 Feuille')
+    const scissors = mkBtn(w / 2 + 140, '✂️ Ciseaux')
+
+    const hint = this.add
+      .text(w / 2, 108, '', {
+        fontFamily: 'monospace',
+        fontSize: '13px',
+        color: '#ffffff',
+        backgroundColor: 'rgba(0,0,0,0.15)',
+        padding: { left: 8, right: 8, top: 4, bottom: 4 },
+      })
+      .setOrigin(0.5, 0)
+      .setScrollFactor(0)
+      .setDepth(1001)
+      .setVisible(false)
+
+    rock.on('pointerdown', () => this.sendRpsChoice('rock'))
+    paper.on('pointerdown', () => this.sendRpsChoice('paper'))
+    scissors.on('pointerdown', () => this.sendRpsChoice('scissors'))
+
+    this.rpsUi = { box, title, btns: { rock, paper, scissors }, hint }
+  }
+
+  private tickRpsUi(time: number) {
+    if (!this.rpsUi) return
+
+    // keep centered on resize
+    const w = this.scale.width
+    this.rpsUi.box.setPosition(w / 2, 70)
+    this.rpsUi.title.setPosition(w / 2, 30)
+    this.rpsUi.btns.rock.setPosition(w / 2 - 140, 70)
+    this.rpsUi.btns.paper.setPosition(w / 2, 70)
+    this.rpsUi.btns.scissors.setPosition(w / 2 + 140, 70)
+    this.rpsUi.hint.setPosition(w / 2, 108)
+
+    if (this.rps.status === 'idle') {
+      this.setRpsUiVisible(false)
+      return
+    }
+
+    if (this.rps.status === 'choosing') {
+      this.setRpsUiVisible(true)
+      this.rpsUi.hint.setText(
+        this.rps.sent
+          ? `Choix envoyé (${this.rps.sent}). En attente de ${this.rps.opponentName}…`
+          : `Touché: ${this.rps.opponentName}. Choisis vite.`,
+      )
+      return
+    }
+
+    if (this.rps.status === 'result') {
+      if (time > this.rps.until) {
+        this.rps = { status: 'idle' }
+        this.setRpsUiVisible(false)
+        return
+      }
+      this.setRpsUiVisible(true)
+      this.rpsUi.hint.setText(this.rps.text)
+    }
+  }
+
+  private setRpsUiVisible(v: boolean) {
+    if (!this.rpsUi) return
+    this.rpsUi.box.setVisible(v)
+    this.rpsUi.title.setVisible(v)
+    this.rpsUi.hint.setVisible(v)
+
+    const showBtns = v && this.rps.status === 'choosing' && !this.rps.sent
+    this.rpsUi.btns.rock.setVisible(showBtns)
+    this.rpsUi.btns.paper.setVisible(showBtns)
+    this.rpsUi.btns.scissors.setVisible(showBtns)
+
+    if (showBtns) {
+      this.rpsUi.btns.rock.setAlpha(1)
+      this.rpsUi.btns.paper.setAlpha(1)
+      this.rpsUi.btns.scissors.setAlpha(1)
+    } else {
+      this.rpsUi.btns.rock.setAlpha(0.55)
+      this.rpsUi.btns.paper.setAlpha(0.55)
+      this.rpsUi.btns.scissors.setAlpha(0.55)
+    }
+  }
+
+  private onRpsStart(m: { [k: string]: unknown }) {
+    const matchId = typeof m.matchId === 'string' ? m.matchId : ''
+    const a = typeof m.a === 'string' ? m.a : ''
+    const b = typeof m.b === 'string' ? m.b : ''
+
+    if (!matchId || !this.myId) return
+    const opponentId = this.myId === a ? b : this.myId === b ? a : ''
+    if (!opponentId) return
+
+    const opponent = this.othersById.get(opponentId)
+    const opponentName = opponent ? opponent.nameText.text : 'quelqu’un'
+
+    this.rps = { status: 'choosing', matchId, opponentId, opponentName }
+  }
+
+  private onRpsResult(m: { [k: string]: unknown }) {
+    if (!this.myId) return
+
+    const winnerId = typeof m.winnerId === 'string' ? m.winnerId : ''
+    const aChoice = typeof m.aChoice === 'string' ? m.aChoice : ''
+    const bChoice = typeof m.bChoice === 'string' ? m.bChoice : ''
+
+    const oppName = this.rps.status === 'choosing' ? this.rps.opponentName : 'adversaire'
+
+    let text = ''
+    if (winnerId === 'draw') text = `Égalité. (${aChoice} vs ${bChoice})`
+    else if (winnerId === this.myId) text = `Victoire. Tu as humilié ${oppName}. (${aChoice} vs ${bChoice})`
+    else text = `Défaite. ${oppName} te coupe en deux. (${aChoice} vs ${bChoice})`
+
+    this.rps = { status: 'result', text, until: this.time.now + 2200 }
+  }
+
+  private sendRpsChoice(choice: RpsChoice) {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return
+    if (this.rps.status !== 'choosing') return
+    if (this.rps.sent) return
+
+    this.ws.send(
+      JSON.stringify({
+        type: 'rps_choice',
+        matchId: this.rps.matchId,
+        choice,
+      }),
+    )
+
+    this.rps = { ...this.rps, sent: choice }
   }
 }
 
