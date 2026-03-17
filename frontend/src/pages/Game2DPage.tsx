@@ -41,6 +41,31 @@ class FarmScene extends Phaser.Scene {
   }
   private lastRpsChallengeAtByOpponent: Map<string, number> = new Map()
 
+  // Arcade / rhythm mini-game
+  private arcade?: {
+    x: number
+    y: number
+    sprite: Phaser.GameObjects.Rectangle
+    label: Phaser.GameObjects.Text
+    prompt: Phaser.GameObjects.Text
+  }
+
+  private ddr?: {
+    active: boolean
+    startedAt: number
+    score: number
+    combo: number
+    life: number
+    notes: { dir: 'L' | 'D' | 'U' | 'R'; t: number; hit?: boolean; sprite: Phaser.GameObjects.Text }[]
+    ui: {
+      panel: Phaser.GameObjects.Rectangle
+      title: Phaser.GameObjects.Text
+      lanes: { L: Phaser.GameObjects.Text; D: Phaser.GameObjects.Text; U: Phaser.GameObjects.Text; R: Phaser.GameObjects.Text }
+      scoreText: Phaser.GameObjects.Text
+      help: Phaser.GameObjects.Text
+    }
+  }
+
   create() {
     const w = this.scale.width
 
@@ -97,6 +122,9 @@ class FarmScene extends Phaser.Scene {
       .circle(SAFE.x, SAFE.y, SAFE.r, 0x000000, 0.12)
       .setStrokeStyle(2, 0xffffff, 0.12)
       .setOrigin(0.5)
+
+    // Arcade cabinet (DDR-ish minigame trigger)
+    this.createArcadeCabinet(520, 260)
 
     // A few obstacles
     const obstacles: Phaser.GameObjects.Rectangle[] = []
@@ -243,6 +271,9 @@ class FarmScene extends Phaser.Scene {
 
     this.maybeTriggerRps(time)
     this.tickRpsUi(time)
+
+    this.tickArcadePrompt()
+    this.tickDdr(time)
   }
 
   private constrainToWorld(obj: Phaser.GameObjects.Image) {
@@ -675,6 +706,374 @@ class FarmScene extends Phaser.Scene {
     )
 
     this.rps = { ...this.rps, sent: choice }
+  }
+
+  private createArcadeCabinet(x: number, y: number) {
+    // simple pixel arcade as rectangles (no external assets)
+    const sprite = this.add.rectangle(x, y, 46, 62, 0x1f2937).setOrigin(0.5)
+    sprite.setStrokeStyle(2, 0x111827, 1)
+
+    const screen = this.add.rectangle(x, y - 10, 30, 22, 0x60a5fa, 0.8).setOrigin(0.5)
+    screen.setStrokeStyle(1, 0x93c5fd, 0.8)
+
+    const label = this.add
+      .text(x, y + 36, 'ARCADE', {
+        fontFamily: 'monospace',
+        fontSize: '11px',
+        color: '#ffffff',
+        backgroundColor: 'rgba(0,0,0,0.25)',
+        padding: { left: 6, right: 6, top: 3, bottom: 3 },
+      })
+      .setOrigin(0.5, 0.5)
+
+    const prompt = this.add
+      .text(x, y - 60, 'E : jouer', {
+        fontFamily: 'monospace',
+        fontSize: '13px',
+        color: '#ffffff',
+        backgroundColor: 'rgba(0,0,0,0.45)',
+        padding: { left: 8, right: 8, top: 4, bottom: 4 },
+      })
+      .setOrigin(0.5)
+      .setVisible(false)
+
+    // group-ish: keep screen attached by just storing both and moving together if needed
+    // (screen is not stored; it's cosmetic)
+
+    // input to start
+    const keyE = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E)
+    keyE.on('down', () => {
+      if (!this.arcade) return
+      if (this.ddr?.active) return
+      if (!this.isNearArcade()) return
+      this.startDdr()
+    })
+
+    // escape to quit
+    const keyEsc = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC)
+    keyEsc.on('down', () => {
+      if (this.ddr?.active) this.stopDdr('quit')
+    })
+
+    this.arcade = { x, y, sprite, label, prompt }
+
+    // also bind arrow key presses for DDR
+    const bindLane = (code: number, dir: 'L' | 'D' | 'U' | 'R') => {
+      const k = this.input.keyboard!.addKey(code)
+      k.on('down', () => this.onDdrHit(dir))
+    }
+    bindLane(Phaser.Input.Keyboard.KeyCodes.LEFT, 'L')
+    bindLane(Phaser.Input.Keyboard.KeyCodes.DOWN, 'D')
+    bindLane(Phaser.Input.Keyboard.KeyCodes.UP, 'U')
+    bindLane(Phaser.Input.Keyboard.KeyCodes.RIGHT, 'R')
+    bindLane(Phaser.Input.Keyboard.KeyCodes.A, 'L')
+    bindLane(Phaser.Input.Keyboard.KeyCodes.S, 'D')
+    bindLane(Phaser.Input.Keyboard.KeyCodes.W, 'U')
+    bindLane(Phaser.Input.Keyboard.KeyCodes.D, 'R')
+  }
+
+  private isNearArcade() {
+    if (!this.arcade) return false
+    const dx = this.player.sprite.x - this.arcade.x
+    const dy = this.player.sprite.y - this.arcade.y
+    return dx * dx + dy * dy < 70 * 70
+  }
+
+  private tickArcadePrompt() {
+    if (!this.arcade) return
+    const near = this.isNearArcade() && !this.ddr?.active
+    this.arcade.prompt.setVisible(near)
+    if (near) {
+      this.arcade.prompt.setPosition(this.arcade.x, this.arcade.y - 60)
+    }
+  }
+
+  private ensureDdrUi() {
+    if (this.ddr?.ui) return
+
+    const w = this.scale.width
+    const panel = this.add
+      .rectangle(w / 2, 120, 620, 200, 0x000000, 0.62)
+      .setStrokeStyle(2, 0xff69b4, 0.65)
+      .setScrollFactor(0)
+      .setDepth(1100)
+      .setVisible(false)
+
+    const title = this.add
+      .text(w / 2, 30, 'DDR de la ferme (proto)', {
+        fontFamily: 'monospace',
+        fontSize: '18px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5, 0)
+      .setScrollFactor(0)
+      .setDepth(1101)
+      .setVisible(false)
+
+    const laneStyle = { fontFamily: 'monospace', fontSize: '34px', color: '#ffffff' }
+    const L = this.add.text(w / 2 - 180, 110, '←', laneStyle).setOrigin(0.5).setScrollFactor(0).setDepth(1101).setVisible(false)
+    const D = this.add.text(w / 2 - 60, 110, '↓', laneStyle).setOrigin(0.5).setScrollFactor(0).setDepth(1101).setVisible(false)
+    const U = this.add.text(w / 2 + 60, 110, '↑', laneStyle).setOrigin(0.5).setScrollFactor(0).setDepth(1101).setVisible(false)
+    const R = this.add.text(w / 2 + 180, 110, '→', laneStyle).setOrigin(0.5).setScrollFactor(0).setDepth(1101).setVisible(false)
+
+    const scoreText = this.add
+      .text(w / 2, 190, 'Score: 0 | Combo: 0 | Vie: 100', {
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5, 0)
+      .setScrollFactor(0)
+      .setDepth(1101)
+      .setVisible(false)
+
+    const help = this.add
+      .text(w / 2, 220, 'Flèches ou WASD au bon timing. ESC pour quitter.', {
+        fontFamily: 'monospace',
+        fontSize: '13px',
+        color: '#ffffff',
+        backgroundColor: 'rgba(0,0,0,0.15)',
+        padding: { left: 8, right: 8, top: 4, bottom: 4 },
+      })
+      .setOrigin(0.5, 0)
+      .setScrollFactor(0)
+      .setDepth(1101)
+      .setVisible(false)
+
+    if (!this.ddr) {
+      // create container
+      this.ddr = {
+        active: false,
+        startedAt: 0,
+        score: 0,
+        combo: 0,
+        life: 100,
+        notes: [],
+        ui: {
+          panel,
+          title,
+          lanes: { L, D, U, R },
+          scoreText,
+          help,
+        },
+      }
+    } else {
+      this.ddr.ui = { panel, title, lanes: { L, D, U, R }, scoreText, help }
+    }
+  }
+
+  private setDdrUiVisible(v: boolean) {
+    if (!this.ddr?.ui) return
+    const { panel, title, lanes, scoreText, help } = this.ddr.ui
+    panel.setVisible(v)
+    title.setVisible(v)
+    lanes.L.setVisible(v)
+    lanes.D.setVisible(v)
+    lanes.U.setVisible(v)
+    lanes.R.setVisible(v)
+    scoreText.setVisible(v)
+    help.setVisible(v)
+  }
+
+  private startDdr() {
+    this.ensureDdrUi()
+    if (!this.ddr) return
+
+    // Reset
+    this.ddr.active = true
+    this.ddr.startedAt = this.time.now
+    this.ddr.score = 0
+    this.ddr.combo = 0
+    this.ddr.life = 100
+
+    // Clear old notes
+    for (const n of this.ddr.notes) n.sprite.destroy()
+    this.ddr.notes = []
+
+    this.setDdrUiVisible(true)
+
+    // Spawn a short chart: 24 notes, ~0.6s apart
+    const dirs: ('L' | 'D' | 'U' | 'R')[] = ['L', 'D', 'U', 'R']
+    for (let i = 0; i < 24; i++) {
+      const dir = dirs[(Math.random() * dirs.length) | 0]
+      const t = this.ddr.startedAt + 1200 + i * 600
+      const x = this.laneX(dir)
+      const sprite = this.add
+        .text(x, 40, this.dirSymbol(dir), {
+          fontFamily: 'monospace',
+          fontSize: '26px',
+          color: '#ffd1ea',
+        })
+        .setOrigin(0.5)
+        .setScrollFactor(0)
+        .setDepth(1102)
+
+      this.ddr.notes.push({ dir, t, sprite })
+    }
+  }
+
+  private stopDdr(reason: 'quit' | 'dead' | 'done') {
+    if (!this.ddr) return
+    this.ddr.active = false
+
+    // Clean notes
+    for (const n of this.ddr.notes) n.sprite.destroy()
+    this.ddr.notes = []
+
+    this.setDdrUiVisible(false)
+
+    // tiny toast via hint area if available
+    const msg =
+      reason === 'done'
+        ? `DDR terminé. Score ${this.ddr.score}.`
+        : reason === 'dead'
+          ? `DDR perdu. Skill issue. Score ${this.ddr.score}.`
+          : `DDR quitté. Score ${this.ddr.score}.`
+
+    // Reuse RPS hint line if UI exists, otherwise do nothing.
+    try {
+      if (this.rpsUi) {
+        this.rps = { status: 'result', text: msg, until: this.time.now + 1800 }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  private laneX(dir: 'L' | 'D' | 'U' | 'R') {
+    const w = this.scale.width
+    if (dir === 'L') return w / 2 - 180
+    if (dir === 'D') return w / 2 - 60
+    if (dir === 'U') return w / 2 + 60
+    return w / 2 + 180
+  }
+
+  private dirSymbol(dir: 'L' | 'D' | 'U' | 'R') {
+    if (dir === 'L') return '←'
+    if (dir === 'D') return '↓'
+    if (dir === 'U') return '↑'
+    return '→'
+  }
+
+  private tickDdr(time: number) {
+    if (!this.ddr?.active || !this.ddr.ui) return
+
+    // keep UI centered on resize
+    const w = this.scale.width
+    this.ddr.ui.panel.setPosition(w / 2, 120)
+    this.ddr.ui.title.setPosition(w / 2, 30)
+    this.ddr.ui.lanes.L.setPosition(w / 2 - 180, 110)
+    this.ddr.ui.lanes.D.setPosition(w / 2 - 60, 110)
+    this.ddr.ui.lanes.U.setPosition(w / 2 + 60, 110)
+    this.ddr.ui.lanes.R.setPosition(w / 2 + 180, 110)
+    this.ddr.ui.scoreText.setPosition(w / 2, 190)
+    this.ddr.ui.help.setPosition(w / 2, 220)
+
+    const hitY = 110
+    const travelMs = 1200
+
+    for (const n of this.ddr.notes) {
+      const dt = n.t - time
+      const progress = 1 - dt / travelMs
+      const y = Phaser.Math.Clamp(40 + progress * (hitY - 40), 40, hitY)
+      n.sprite.setPosition(this.laneX(n.dir), y)
+
+      // Missed
+      if (!n.hit && time > n.t + 170) {
+        n.hit = true
+        n.sprite.setAlpha(0.15)
+        this.ddr.combo = 0
+        this.ddr.life -= 8
+      }
+    }
+
+    this.ddr.ui.scoreText.setText(`Score: ${this.ddr.score} | Combo: ${this.ddr.combo} | Vie: ${Math.max(0, this.ddr.life)}`)
+
+    // End conditions
+    if (this.ddr.life <= 0) {
+      this.stopDdr('dead')
+      return
+    }
+
+    const remaining = this.ddr.notes.some((n) => !n.hit)
+    if (!remaining) {
+      this.stopDdr('done')
+    }
+  }
+
+  private onDdrHit(dir: 'L' | 'D' | 'U' | 'R') {
+    if (!this.ddr?.active) return
+
+    const now = this.time.now
+    // Find nearest unhit note for that dir
+    let best: { idx: number; delta: number } | null = null
+    for (let i = 0; i < this.ddr.notes.length; i++) {
+      const n = this.ddr.notes[i]
+      if (n.hit || n.dir !== dir) continue
+      const d = Math.abs(n.t - now)
+      if (!best || d < best.delta) best = { idx: i, delta: d }
+    }
+
+    if (!best) {
+      // random spam, small penalty
+      this.ddr.combo = 0
+      this.ddr.life -= 2
+      return
+    }
+
+    const n = this.ddr.notes[best.idx]
+    const d = best.delta
+
+    // judgement windows
+    let pts = 0
+    let label = ''
+    if (d <= 70) {
+      pts = 120
+      label = 'PERFECT'
+    } else if (d <= 120) {
+      pts = 80
+      label = 'GOOD'
+    } else if (d <= 170) {
+      pts = 40
+      label = 'OK'
+    } else {
+      pts = 0
+      label = 'MISS'
+    }
+
+    n.hit = true
+    n.sprite.setAlpha(0.15)
+
+    if (pts > 0) {
+      this.ddr.combo += 1
+      this.ddr.score += pts + Math.min(50, this.ddr.combo)
+      this.ddr.life = Math.min(100, this.ddr.life + 1)
+    } else {
+      this.ddr.combo = 0
+      this.ddr.life -= 6
+    }
+
+    // tiny feedback flash on lane
+    try {
+      const lane = this.ddr.ui.lanes[dir]
+      lane.setTint(pts > 0 ? 0x22c55e : 0xef4444)
+      this.time.delayedCall(120, () => lane.clearTint())
+
+      const pop = this.add
+        .text(this.laneX(dir), 80, label, {
+          fontFamily: 'monospace',
+          fontSize: '12px',
+          color: pts > 0 ? '#86efac' : '#fca5a5',
+          backgroundColor: 'rgba(0,0,0,0.25)',
+          padding: { left: 6, right: 6, top: 3, bottom: 3 },
+        })
+        .setOrigin(0.5)
+        .setScrollFactor(0)
+        .setDepth(1103)
+      this.time.delayedCall(450, () => pop.destroy())
+    } catch {
+      // ignore
+    }
   }
 }
 
