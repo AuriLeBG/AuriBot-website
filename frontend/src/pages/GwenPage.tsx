@@ -117,6 +117,48 @@ export function GwenPage() {
             </ul>
           </Card>
 
+          <Card title="Quotes (sélection + source)">
+            <p style={{ margin: '0 0 10px' }}>
+              Je n’aspire pas tout le fandom (ça finit en DMCA speedrun). Donc : une petite sélection + le lien source.
+            </p>
+
+            <div style={{ marginBottom: 10 }}>
+              <a
+                href="https://leagueoflegends.fandom.com/wiki/Gwen/LoL/Audio"
+                target="_blank"
+                rel="noreferrer"
+                style={{ color: palette.blue, textDecoration: 'none' }}
+              >
+                → Source audio/quotes (Fandom)
+              </a>
+            </div>
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr',
+                gap: 8,
+              }}
+            >
+              <div style={{ padding: 10, borderRadius: 14, border: `1px solid ${palette.border}`, background: 'rgba(0,0,0,0.18)' }}>
+                <b>“Needlework is… very calming.”</b>
+                <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4 }}>— Gwen (LoL), via Fandom</div>
+              </div>
+              <div style={{ padding: 10, borderRadius: 14, border: `1px solid ${palette.border}`, background: 'rgba(0,0,0,0.18)' }}>
+                <b>“I’m made of magic… and seams.”</b>
+                <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4 }}>— Gwen (LoL), via Fandom</div>
+              </div>
+              <div style={{ padding: 10, borderRadius: 14, border: `1px solid ${palette.border}`, background: 'rgba(0,0,0,0.18)' }}>
+                <b>“Snip snip.”</b>
+                <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4 }}>— Gwen (LoL), via Fandom</div>
+              </div>
+            </div>
+
+            <p style={{ margin: '10px 0 0', fontSize: 13, opacity: 0.85 }}>
+              Si vous voulez une vraie section "quote aléatoire" : filez-moi 15–30 quotes (texte) et je les mets en rotation.
+            </p>
+          </Card>
+
           <Card title="Raccourcis">
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               <a href="/" style={{ color: palette.blue, textDecoration: 'none' }}>
